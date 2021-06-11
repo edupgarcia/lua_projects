@@ -1,5 +1,8 @@
 GAME_OVER = false
+WINNER = false
 METEORS_MAX = 12
+METEORS_DESTROYED = 0
+METEORS_TARGET = 100
 
 -- Main WidxMeteorow
 MainWindow = {
@@ -39,6 +42,7 @@ Plane = {
   shootArray = {},
 
   move = function (self)
+    
     if love.keyboard.isDown('w') and self.y > 0 then
       self.y = self.y - 1
     elseif love.keyboard.isDown('s') and self.y < (MainWindow.height - self.height) then
@@ -48,6 +52,7 @@ Plane = {
     elseif love.keyboard.isDown('d') and self.x < (MainWindow.width - self.width) then
       self.x = self.x + 1
     end
+
   end,
 
   shoot = function (self)
@@ -64,28 +69,46 @@ Plane = {
   end,
 
   shootMove = function (self)
+    
     for idxShoot = #self.shootArray, 1, -1 do
+      
       if self.shootArray[idxShoot].y > 0 then
         self.shootArray[idxShoot].y = self.shootArray[idxShoot].y - 1
       else
         table.remove(self.shootArray, idxShoot)
       end
+
     end
+
   end,
 
   shootColide = function (self)
+    
     for idxShoot = #self.shootArray, 1, -1 do
       local itemShoot = self.shootArray[idxShoot]
+      
       for idxMeteor = #MeteorsArray, 1, -1 do
         local itemxMeteor = MeteorsArray[idxMeteor]
+        
         if Colision(itemShoot.x, itemShoot.y, itemShoot.width, itemShoot.height,
         itemxMeteor.x, itemxMeteor.y, itemxMeteor.width, itemxMeteor.height) then
           table.remove(self.shootArray, idxShoot)
           table.remove(MeteorsArray, idxMeteor)
+          METEORS_DESTROYED = METEORS_DESTROYED + 1
+          
+          if METEORS_DESTROYED >= METEORS_TARGET then
+            WINNER = true
+            BackgroundSound:stop()
+            WinnerSound:play()
+          end
+
           break
         end
+
       end
+
     end
+
   end,
 
   destroy = function (self)
@@ -95,7 +118,7 @@ Plane = {
     love.graphics.draw(PlaneImage, Plane.x, Plane.y)
     BackgroundSound:stop()
     ExplosionSound:play()
-    Game_overSound:play()
+    GameOverSound:play()
     GAME_OVER = true
   end
 }
@@ -118,26 +141,35 @@ Meteor = {
   end,
 
   move = function ()
+    
     for k, meteor in pairs(MeteorsArray) do
       meteor.y = meteor.y + meteor.peso
       meteor.x = meteor.x + meteor.deslocamento_horizontal
     end
+
   end,
 
   remove = function ()
+    
     for i = #MeteorsArray, 1, -1 do
+      
       if MeteorsArray[i].y > MainWindow.height then
         table.remove(MeteorsArray, i)
       end
+
     end
+
   end,
 
   colisionCheck = function ()
+    
     for k, meteor in pairs(MeteorsArray) do
-      if Colision(meteor.x, meteor.y, meteor.width, meteor.height, 
+      
+      if Colision(meteor.x, meteor.y, meteor.width, meteor.height,
       Plane.x, Plane.y, Plane.width, Plane.height) then
         Plane:destroy()
       end
+
     end
 
   end
@@ -149,9 +181,16 @@ function Colision(x1, y1, w1, h1, x2, y2, w2, h2)
 end
 
 local function DrawArray(list, image)
+  
   for k, value in pairs(list) do
     love.graphics.draw(image, value.x, value.y)
   end
+
+end
+
+local function DrawCentered(image)
+  love.graphics.draw(image, MainWindow.width / 2 - image:getWidth() / 2,
+      MainWindow.height / 2 - image:getHeight() / 2)
 end
 
 -- Load some default values for our rectangle.
@@ -170,7 +209,7 @@ function love.load()
   BackgroundSound = love.audio.newSource(Sounds.background, 'static')
   ShootSound = love.audio.newSource(Sounds.shoot, 'static')
   ExplosionSound = love.audio.newSource(Sounds.explosion, 'static')
-  Game_overSound = love.audio.newSource(Sounds.game_over, 'static')
+  GameOverSound = love.audio.newSource(Sounds.game_over, 'static')
   WinnerSound = love.audio.newSource(Sounds.winner, 'static')
 
   BackgroundSound:setLooping(true)
@@ -180,7 +219,7 @@ function love.load()
 end
 
 function love.update(dt)
-  if not GAME_OVER then
+  if not GAME_OVER and not WINNER then
     if love.keyboard.isDown('w', 's', 'a', 'd') then
       Plane:move()
     end
@@ -199,17 +238,34 @@ function love.update(dt)
 end
 
 function love.keypressed(key)
-  if key == 'escape' then
-    love.event.quit()
-  elseif key == 'space' and not GAME_OVER then
-    Plane:shoot()
+  
+  if not GAME_OVER and not WINNER then
+
+    if key == 'escape' then
+      love.event.quit()
+    elseif key == 'space' and not GAME_OVER then
+      Plane:shoot()
+    end
+
   end
+
 end
 
 function love.draw()
   love.graphics.draw(BackgroundImage, 0, 0)
   love.graphics.draw(PlaneImage, Plane.x, Plane.y)
 
+  love.graphics.print('Meteors Destroyed '..METEORS_DESTROYED..' of '..METEORS_TARGET)
+
   DrawArray(MeteorsArray, MeteoroImage)
   DrawArray(Plane.shootArray, ShootImage)
+
+  if GAME_OVER then
+    DrawCentered(GameOverImage)
+  end
+
+  if WINNER then
+    DrawCentered(WinnerImage)
+  end
+
 end
